@@ -68,6 +68,10 @@ const IPC_RECONNECT_DELAY_MS = 1_000;
 const SIDEBAR_PREVIEW_MAX_CHARS = 180;
 const SIDEBAR_CORE_CACHE_TTL_MS = 1_000;
 const RATE_LIMITS_CACHE_TTL_MS = 5_000;
+const EMPTY_RATE_LIMITS_RESPONSE: AppServerGetAccountRateLimitsResponse = {
+  rateLimits: {},
+  rateLimitsByLimitId: null,
+};
 const CORE_RELEVANT_CODEX_NOTIFICATION_METHODS = new Set<
   AppServerServerNotificationMethod
 >([
@@ -1049,7 +1053,10 @@ async function readRateLimitsSafe():
   Promise<AppServerGetAccountRateLimitsResponse | null> {
   try {
     return await readRateLimitsShared();
-  } catch {
+  } catch (error) {
+    if (isChatGptAuthenticationRequiredRateLimitsMessage(toErrorMessage(error))) {
+      return EMPTY_RATE_LIMITS_RESPONSE;
+    }
     return null;
   }
 }
@@ -1087,6 +1094,14 @@ async function readRateLimitsShared():
 
   rateLimitsInFlight = adapter
     .readRateLimits()
+    .catch((error) => {
+      if (
+        !isChatGptAuthenticationRequiredRateLimitsMessage(toErrorMessage(error))
+      ) {
+        throw error;
+      }
+      return EMPTY_RATE_LIMITS_RESPONSE;
+    })
     .then((value) => {
       rateLimitsCacheEntry = {
         expiresAtMs: Date.now() + RATE_LIMITS_CACHE_TTL_MS,
@@ -1098,6 +1113,16 @@ async function readRateLimitsShared():
       rateLimitsInFlight = null;
     });
   return rateLimitsInFlight;
+}
+
+function isChatGptAuthenticationRequiredRateLimitsMessage(
+  message: string,
+): boolean {
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized.includes("chatgpt authentication required") &&
+    normalized.includes("rate limits")
+  );
 }
 
 function classifyCodexFrameForRealtime(frame: IpcFrame): void {
