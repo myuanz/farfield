@@ -556,6 +556,7 @@ export class CodexAgentAdapter implements AgentAdapter {
           ? { approvalPolicy: input.approvalPolicy }
           : {}),
         ephemeral: input.ephemeral ?? false,
+        persistExtendedHistory: true,
       }),
     );
     this.setThreadTitle(result.thread.id, result.thread.title);
@@ -2432,10 +2433,6 @@ export class CodexAgentAdapter implements AgentAdapter {
 
     if (this.desktopOwnedThreadIds.has(threadId)) {
       this.throwDisconnectedDesktopOwner(threadId);
-    }
-
-    if (this.isIpcReady()) {
-      this.throwUnregisteredDesktopOwner(threadId);
     }
 
     return {

@@ -36,6 +36,7 @@ describe("AppServerClient.startThread", () => {
     expect(transport.request).toHaveBeenCalledWith("thread/start", {
       cwd: "/tmp/project",
       ephemeral: false,
+      persistExtendedHistory: true,
     });
   });
 
@@ -57,6 +58,7 @@ describe("AppServerClient.startThread", () => {
     expect(transport.request).toHaveBeenCalledWith("thread/start", {
       cwd: "/tmp/project",
       ephemeral: true,
+      persistExtendedHistory: true,
     });
   });
 });

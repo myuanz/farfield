@@ -484,7 +484,7 @@ describe("CodexAgentAdapter app-server pending requests", () => {
     ]);
   });
 
-  it("rejects desktop-ready sends when no owner client is registered", async () => {
+  it("uses app-server sends for threads with no desktop owner", async () => {
     const threadId = "thread-unregistered-owner-send";
     const adapter = createAdapter();
     readThreadResponse = {
@@ -492,18 +492,21 @@ describe("CodexAgentAdapter app-server pending requests", () => {
     };
     await adapter.start();
 
-    await expect(
-      adapter.sendMessage({
-        threadId,
-        text: "hello from Farfield",
-        model: "gpt-5.5",
-      }),
-    ).rejects.toThrow(
-      `Codex desktop owner for thread ${threadId} is not registered`,
-    );
+    await adapter.sendMessage({
+      threadId,
+      text: "hello from Farfield",
+      model: "gpt-5.5",
+    });
 
     expect(ipcRequestCalls).toEqual([]);
-    expect(startTurnCalls).toEqual([]);
+    expect(startTurnCalls).toEqual([
+      {
+        threadId,
+        input: [{ type: "text", text: "hello from Farfield" }],
+        model: "gpt-5.5",
+        attachments: [],
+      },
+    ]);
   });
 
   it("clears stale owner client and reports disconnected desktop owner", async () => {
@@ -561,7 +564,7 @@ describe("CodexAgentAdapter app-server pending requests", () => {
     expect(startTurnCalls).toEqual([]);
   });
 
-  it("does not route unowned desktop-ready sends to another thread's last stream owner", async () => {
+  it("does not route unowned app-server sends to another thread's last stream owner", async () => {
     const ownedThreadId = "thread-with-stream-owner";
     const unownedThreadId = "thread-without-stream-owner";
     const adapter = createAdapter();
@@ -587,19 +590,22 @@ describe("CodexAgentAdapter app-server pending requests", () => {
     });
 
     const liveState = await adapter.readLiveState(unownedThreadId);
-    await expect(
-      adapter.sendMessage({
-        threadId: unownedThreadId,
-        text: "hello from Farfield",
-        model: "gpt-5.5",
-      }),
-    ).rejects.toThrow(
-      `Codex desktop owner for thread ${unownedThreadId} is not registered`,
-    );
+    await adapter.sendMessage({
+      threadId: unownedThreadId,
+      text: "hello from Farfield",
+      model: "gpt-5.5",
+    });
 
     expect(liveState.ownerClientId).toBeNull();
     expect(ipcRequestCalls).toEqual([]);
-    expect(startTurnCalls).toEqual([]);
+    expect(startTurnCalls).toEqual([
+      {
+        threadId: unownedThreadId,
+        input: [{ type: "text", text: "hello from Farfield" }],
+        model: "gpt-5.5",
+        attachments: [],
+      },
+    ]);
   });
 
   it("returns canonical thread state for sparse readThread results", async () => {
@@ -752,7 +758,7 @@ describe("CodexAgentAdapter app-server pending requests", () => {
     expect(ipcRequestCalls).toEqual([]);
   });
 
-  it("rejects desktop-ready collaboration mode changes when no owner client is registered", async () => {
+  it("keeps unowned collaboration mode changes local when desktop IPC is ready", async () => {
     const threadId = "thread-unregistered-owner-mode";
     const adapter = createAdapter();
     readThreadResponse = {
@@ -760,21 +766,18 @@ describe("CodexAgentAdapter app-server pending requests", () => {
     };
     await adapter.start();
 
-    await expect(
-      adapter.setCollaborationMode({
-        threadId,
-        collaborationMode: {
-          mode: "default",
-          settings: {
-            model: "gpt-5.5",
-            reasoning_effort: "medium",
-          },
+    const result = await adapter.setCollaborationMode({
+      threadId,
+      collaborationMode: {
+        mode: "default",
+        settings: {
+          model: "gpt-5.5",
+          reasoning_effort: "medium",
         },
-      }),
-    ).rejects.toThrow(
-      `Codex desktop owner for thread ${threadId} is not registered`,
-    );
+      },
+    });
 
+    expect(result.ownerClientId).toBe("farfield");
     expect(ipcRequestCalls).toEqual([]);
   });
 

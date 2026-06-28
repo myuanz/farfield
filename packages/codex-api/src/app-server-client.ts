@@ -67,6 +67,7 @@ export interface StartThreadOptions {
   sandbox?: string;
   approvalPolicy?: string;
   ephemeral?: boolean;
+  persistExtendedHistory?: boolean;
 }
 
 export interface SteerTurnOptions {
@@ -255,7 +256,8 @@ export class AppServerClient {
   public async startThread(options: StartThreadOptions): Promise<AppServerStartThreadResponse> {
     const request = AppServerStartThreadRequestSchema.parse({
       ...options,
-      ephemeral: options.ephemeral ?? false
+      ephemeral: options.ephemeral ?? false,
+      persistExtendedHistory: options.persistExtendedHistory ?? true
     });
     const result = await this.transport.request("thread/start", request);
     return parseWithSchema(AppServerStartThreadResponseSchema, result, "AppServerStartThreadResponse");
